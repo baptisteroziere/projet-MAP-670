@@ -3,14 +3,13 @@
 
 
 # In[1]:
-from pyspark import SparkContext
 import os
 import numpy as np
 import codecs
 path_baptiste = "/home/baptiste/Documents/data/train"
 path_igor = "C:/Users/Igor/Documents/Master Data Science/Big Data Analytics/Projet/Data/train"
 path_sofia = "/Users/Flukmacdesof/data 2/train"
-path_serveur = "home/igor.koval/project-MAP-670"
+path_serveur = "/home/igor.koval/projet-MAP-670/data/train"
 
 
 #assumes labelled data ra stored into a positive and negative folder
@@ -47,7 +46,7 @@ def loadUknown(path):
 	names=[]
 	for subdir, dirs, files in os.walk(rootdir):
 		for file in files:
-			with open(rootdir+"/"+file, 'r', endoding= "utf-8") as content_file:
+			with open(rootdir+"/"+file, 'r', encoding= "utf-8") as content_file:
 				content = content_file.read() #assume that there are NO "new line characters"
 				data.append(content)
 				names.append(file.split(".")[0])
@@ -57,8 +56,9 @@ def loadUknown(path):
 # ## Data loading
 
 # In[2]:
-sc = SparkContext(appName="Simple App")
-reviews, Class = loadLabeled(path_igor)
+#sc = SparkContext(appName="Simple App")
+reviews, Class = loadLabeled(path_serveur)
+print np.asarray(reviews).shape
 
 
 # ## First data cleaning:
@@ -128,6 +128,7 @@ for idr,review in enumerate(reviews):
 # In[7]:
 
 # THE MOVIE LIST HAS TO BE COMPLETED
+'''
 from imdbpie import Imdb
 imdb = Imdb(anonymize = True)
 
@@ -135,7 +136,6 @@ imdb = Imdb(anonymize = True)
 movie_list = {}
 for movie in imdb.top_250():
     movie_list[movie['title']] = movie['rating']
-
 
 # In[8]:
 
@@ -165,7 +165,6 @@ for movie in rev_movie:
     else:
         new_rev_movie.append(movie[0])     
 
-
 # In[10]:
 
 # AS FOR NOW, THERE ARE ONLY BAD MOVIES
@@ -186,7 +185,7 @@ for movie in new_rev_movie:
 
 # ## Feature Creation :
 # - Grade mentionned in the movie
-
+'''
 # In[11]:
 
 rev_grade = []
@@ -497,8 +496,8 @@ csr_vappend(tfidf_matrix, rev_length)
 csr_vappend(tfidf_matrix, rev_word_count)
 csr_vappend(tfidf_matrix, good_grade)
 csr_vappend(tfidf_matrix, bad_grade)
-csr_vappend(tfidf_matrix, good_movie_mentionned)
-csr_vappend(tfidf_matrix, bad_movie_mentionned)
+#csr_vappend(tfidf_matrix, good_movie_mentionned)
+#csr_vappend(tfidf_matrix, bad_movie_mentionned)
 csr_vappend(tfidf_matrix, features_smiley)
 
 
