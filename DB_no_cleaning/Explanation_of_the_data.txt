@@ -1,0 +1,7 @@
+The data here are the results of the following transformation : 
+- Loading the data (reviews and class)
+- TfIdfVectorizer : Mono-grams only 
+- Storing them
+
+Only 25% of the data is kept in the test set!
+These data are used to have a starting point in order to improve the model as for the different algorithms
