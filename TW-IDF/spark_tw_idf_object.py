@@ -1,8 +1,8 @@
 import random
 from pyspark import SparkContext
 from functools import partial
-from features_creation_TWIDF_Sofia import loadLabeled
 import string
+import loadLabeled from loadFiles
 from nltk.corpus import stopwords
 from nltk.stem.snowball import SnowballStemmer
 import numpy as np
@@ -10,7 +10,7 @@ import networkx as nx
 import csv
 from scipy.sparse import coo_matrix
 
-def tw(doc_words):
+def tw(doc_words, sliding_window, idf_col):
     dG = nx.Graph()
     if len(doc_words)>1:
         populateGraph(doc_words,dG,sliding_window)
@@ -33,19 +33,46 @@ def populateGraph(wordList,dG,sliding_window):
 
 stemmer = SnowballStemmer("english")
 
+class tw_idf():
+    def __init__(self, sliding_window, num_documents):
+        self.sliding_window = sliding_window
+        self.num_documents = num_documents
+    def fit(self, cleaned_rdd):
+        unique_words = cleaned_rdd.flatMap(lambda x: x.split()).distinct().collect()
+        self.unique_words = {word: i for i, word in enumerate(unique_words)}
+        word_counts = cleaned_rdd.flatMap(lambda x: x.split())
+        word_counts = word_counts.map(lambda word : (word, 1)).reduceByKey(lambda x, y: x + y)
+        idf = word_counts.map(lambda x: (x[0], np.log10(float(self.num_documents)/x[1]))).collect()
+        self.idf_col = {x : y for x,y in idf}
+        return self
+    def transform(self, cleaned_rdd):
+        words_per_doc=cleaned_rdd.map(lambda x: x.split())
+        tw_scores = words_per_doc.map(partial(tw, sliding_window=self.sliding_window, idf_col=self.idf_col)).collect()
+        row=[]
+        col=[]
+        val=[]
+        for i in range(len(tw_scores)):
+            row += len(tw_scores[i])*[i]
+            for j in range(len(tw_scores[i])):
+                col += [self.unique_words[tw_scores[i][j][0]]]
+                val += [tw_scores[i][j][1]]
+        row=np.array(row)
+        col=np.array(col)
+        val=np.array(val)
+        return coo_matrix((val,(row,col)), shape=(len(tw_scores),len(self.unique_words)))
+
 path_baptiste = "/home/baptiste/Documents/data/train"
 path_igor = "C:/Users/Igor/Documents/Master Data Science/Big Data Analytics/Projet/data/train"
 path_sofia = "/Users/Flukmacdesof/data 2/train"
 path_sofia_server = "/home/sofia.calcagno/data 2/train"
 
+#TRAIN
+
 print "importing data..."
 
 data, labels = loadLabeled(path_sofia_server)
-
-
-num_documents = len(data)
 sliding_window = 2
-
+num_documents = len(data)
 sc = SparkContext(appName="TW-IDF App")
 
 print "starting data cleaning"
@@ -54,38 +81,7 @@ exclude = set(string.punctuation) #punctuation list
 swords = stopwords.words("english") #list of stopwords
 
 rdd=sc.parallelize(data, numSlices=16)
-#cleaning the data
 cleaned_rdd=rdd.map(lambda x: x.replace('<br />',' ')).map(lambda x:''.join([stemmer.stem(word)+' ' for word in x.split() if word not in swords])).map(lambda x:''.join([w if w not in exclude else " " for w in x.lower() ]))
 
-#words, unique words and word count
-words = cleaned_rdd.flatMap(lambda x: x.split())
-words_per_doc=cleaned_rdd.map(lambda x: x.split())
-unique_words=words.distinct()
-unique_words_dic={word: i for i, word in enumerate(unique_words.collect())}
-word_counts = words.map(lambda word : (word, 1)).reduceByKey(lambda x, y: x + y)
-
-
-#TW-IDF computation
-#IDF
-idf = word_counts.map(lambda x: (x[0], np.log10(float(num_documents)/x[1])))
-idf_tuples = idf.collect()
-idf_col = dict((x,y) for x,y in idf_tuples)
-
-
-tw_scores = words_per_doc.map(tw)
-features_tw=tw_scores.collect()
-
-row=[]
-col=[]
-val=[]
-for i in range(len(features_tw)):
-    row += len(features_tw[i])*[i]
-    for j in range(len(features_tw[i])):
-        col += [unique_words_dic[features_tw[i][j][0]]]
-        val += [features_tw[i][j][1]]
-row=np.array(row)
-col=np.array(col)
-val=np.array(val)
-
-tw_idf_matrix=coo_matrix((val,(row,col)), shape=(len(features_tw),len(unique_words_dic)))
-np.savez("tw_idf_train", x=tw_idf_matrix)
+TW = tw_idf(sliding_window, num_documents).fit(cleaned_rdd)
+m_tw_idf_train = TW.transform(cleaned_rdd)
