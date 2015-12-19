@@ -85,3 +85,4 @@ cleaned_rdd=rdd.map(lambda x: x.replace('<br />',' ')).map(lambda x:''.join([ste
 
 TW = tw_idf(sliding_window, num_documents).fit(cleaned_rdd)
 m_tw_idf_train = TW.transform(cleaned_rdd)
+save_sparse_csr("tw_idf_train",tw_idf_matrix)
