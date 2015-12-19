@@ -2,7 +2,7 @@ import random
 from pyspark import SparkContext
 from functools import partial
 import string
-import loadLabeled from loadFiles
+from loadLabeled import loadFiles
 from nltk.corpus import stopwords
 from nltk.stem.snowball import SnowballStemmer
 import numpy as np
