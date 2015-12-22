@@ -109,14 +109,15 @@ sliding_window=2, n_grams=None):
                 tf.cache()
                 idf = IDF().fit(tf)
                 tfidf.append(idf.transform(tf).collect())
-            features = [csr_matrix(np.array(tfidf[i] + other[i][0])) for i in range(len(rdd_list))]
-            names = [fit_tw[i].idf_col.keys() + other[i][1] for i in range(len(rdd_list))]
+            #problème dans le format des features
+            #features = [csr_matrix(np.array(tfidf[i] + other[i][0])) for i in range(len(rdd_list))]
+            #names = [fit_tw[i].idf_col.keys() + other[i][1] for i in range(len(rdd_list))]
             return features, names
     else :
         all_data= train + test
         rdd_all=sc.parallelize(all_data, numSlices=16)
         no_html_all_rdd=rdd_all.map(lambda x: x.replace('<br />',' '))
-        other_all, names =create_other_features(no_html_all_rdd)
+        other_all, other_names =create_other_features(no_html_all_rdd)
         rdd_all=rdd_all.map(
         lambda x: x.lower()
         ).map(
@@ -138,12 +139,23 @@ sliding_window=2, n_grams=None):
         )
         )
         if word_score == "tw_idf":
-            tw=tw_idf().fit(rdd_all).transform(rdd_all)
+            num_documents=len(train)
+            tw_fit=tw_idf(num_documents=num_documents,
+            sliding_window=sliding_window).fit(rdd_all)
+            tw=tw_fit.transform(rdd_all)
+            features = hstack([tw, other_all])
+            names = fit_tw.idf_col.keys() + other_names
+            return features, names
         elif word_score == "tf_idf":
             hashingTF = HashingTF()
-            tf_rdd = hashingTF.transform(rdd)
+            tf_rdd = hashingTF.transform(rdd_all)
             tf.cache()
-            idf = IDF().fit(tf).transform(tf)
+            idf = IDF().fit(tf)
+            tfidf=idf.transform(tf).collect()
+            #Besoin de transformer tfidf en sparse matrix...
+            #features =
+            #names =
+            return features, names
 
         rdd_all= sc.parallelize(train + test, numSlices=16)
 
