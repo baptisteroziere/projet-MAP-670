@@ -6,6 +6,7 @@ from sklearn.cross_validation import train_test_split
 from nltk import PorterStemmer
 from pyspark.mllib.feature import HashingTF
 from pyspark.mllib.feature import IDF
+from scipy.sparse import hstack, coo_matrix, csr_matrix
 
 path_baptiste_train = "/home/baptiste/Documents/data/train"
 path_igor_train = "C:/Users/Igor/Documents/Master Data Science/Big Data Analytics/Projet/data/train"
@@ -32,7 +33,7 @@ sc = SparkContext(appName="TW-IDF App")
 
 def create_features(train, train_labels, test, test_size=0.25,
 compute_together=True, word_score="tw_idf", compute_other=True,
-sliding_window=None, n_grams=None):
+sliding_window=2, n_grams=None):
     """
     Give a function that splits the data for cross-validation that only takes
     train and train_labels as arguments (use partial).
@@ -83,21 +84,31 @@ sliding_window=None, n_grams=None):
             )
             )
         if word_score == "tw_idf":
-            fit_tw=[tw_idf().fit(rdd_list[0]), tw_idf().fit(rdd_list[2])]
+            num_documents=len(train)
+            fit_tw=[
+            tw_idf(
+            num_documents=num_documents, sliding_window=sliding_window).fit(
+            rdd_list[0]),
+            tw_idf(
+            num_documents=num_documents, sliding_window=sliding_window
+            ).fit(rdd_list[2])]
             transform_tw = [fit_tw[0].transform(rdd_list[0]),
             fit_tw[0].transform(rdd_list[1]), fit_tw[1].transform(rdd_list[2]),
             fit_tw[1].transform(rdd_list[3])]
-            features = [csr_matrix(np.array(transform_tw[i] + other[i][0])) for i in range(len(rdd_list))]
-            names = [fit_tw[i].idf_col.keys() + other[i][1] for i in range(len(rdd_list))]
+            features = [hstack([transform_tw[i], other[i][0]]) for i in range(len(rdd_list))]
+            names = [fit_tw[0].idf_col.keys() + other[0][1],
+            fit_tw[0].idf_col.keys() + other[1][1],
+            fit_tw[1].idf_col.keys() + other[2][1],
+            fit_tw[1].idf_col.keys() + other[3][1]]
             return features, names
-        elif word_score == "tw_idf":
+        elif word_score == "tf_idf":
             hashingTF = HashingTF()
             tf_rdd = [hashingTF.transform(rdd) for rdd in rdd_list]
             tfidf=[]
-            for i, tf in enumerate(tf_rdd):
+            for tf in tf_rdd:
                 tf.cache()
                 idf = IDF().fit(tf)
-                tfidf[i] = idf.transform(tf).collect()
+                tfidf.append(idf.transform(tf).collect())
             features = [csr_matrix(np.array(tfidf[i] + other[i][0])) for i in range(len(rdd_list))]
             names = [fit_tw[i].idf_col.keys() + other[i][1] for i in range(len(rdd_list))]
             return features, names
@@ -138,74 +149,83 @@ sliding_window=None, n_grams=None):
 
 
 
-rdd.map(lambda x: x.replace('<br />',' '))
 
 
 
-.map(
-lambda x:''.join(
-[stemmer.stem(word)+' ' for word in x.split() if word not in swords]
-)
-).map(
-lambda x:''.join(
-[w if w not in exclude else " " for w in x.lower() ]
-)
-)
 
-if not compute_together:
-    train_train, train_test, train_train_label, train_test_label = train_test_split(
-    train, train_labels, test_size=test_size, random_state=random_state)
-    rdd_train=sc.parallelize(train, numSlices=16).map(
-    lambda x: x.replace('<br />',' ')
-    )
-    rdd_test=sc.parallelize(test, numSlices=16).map(
-    lambda x: x.replace('<br />',' ')
-    )
-    rdd_train_train=sc.parallelize(train_train, numSlices=16).map(
-    lambda x: x.replace('<br />',' ')
-    )
-    rdd_train_test=sc.parallelize(train_test, numSlices=16).map(
-    lambda x: x.replace('<br />',' ')
-    )
-    rdd_list=[rdd_train, rdd_test, rdd_train_train, rdd_train_test]
-    other=[create_other_features(rdd) for rdd in rdd_list]
-    #clean data
-    for i, rdd in enumerate(rdd_list):
-        rdd_list[i]=rdd.map(
-        lambda x: x.lower()
-        ).map(
-        lambda x: x.replace(
-        "'ll", " will"
-        ).replace(
-        "n't", " not"
-        ).replace(
-        "i'm", "i am"
-        ).replace(
-        "you're", "you are"
-        )).map(
-        lambda x:' '.join(
-        [stemmer.stem(word) for word in x.split() if word not in swords]
-        )
-        ).map(
-        lambda x:''.join(
-        [w if w not in exclude else " " for w in x.lower() ]
-        )
-        )
-    if word_score == "tw_idf":
-        fit_tw=[tw_idf().fit(rdd_list[0]), tw_idf().fit(rdd_list[2])]
-        transform_tw = [fit_tw[0].transform(rdd_list[0]),
-        fit_tw[0].transform(rdd_list[1]), fit_tw[1].transform(rdd_list[2]),
-        fit_tw[1].transform(rdd_list[3])]
-        features = [csr_matrix(np.array(transform_tw[i] + other[i][0])) for i in range(len(rdd_list))]
-        names = [fit_tw[i].idf_col.keys() + other[i][1] for i in range(len(rdd_list))]
-        #return features, names
-    elif word_score == "tw_idf":
-        hashingTF = HashingTF()
-        tf_rdd = [hashingTF.transform(rdd) for rdd in rdd_list]
-        tfidf=[]
-        for i, tf in enumerate(tf_rdd):
-            tf.cache()
-            idf = IDF().fit(tf)
-            tfidf[i] = idf.transform(tf).collect()
-        features = [csr_matrix(np.array(tfidf[i] + other[i][0])) for i in range(len(rdd_list))]
-        names = [fit_tw[i].idf_col.keys() + other[i][1] for i in range(len(rdd_list))]
+#
+# test_size=0.25
+# compute_together=True
+# word_score="tw_idf"
+# compute_other=True
+# sliding_window=2
+#
+# train_train, train_test, train_train_label, train_test_label = train_test_split(
+# train, train_labels, test_size=test_size, random_state=random_state)
+# rdd_train=sc.parallelize(train, numSlices=16).map(
+# lambda x: x.replace('<br />',' ')
+# )
+# rdd_test=sc.parallelize(test, numSlices=16).map(
+# lambda x: x.replace('<br />',' ')
+# )
+# rdd_train_train=sc.parallelize(train_train, numSlices=16).map(
+# lambda x: x.replace('<br />',' ')
+# )
+# rdd_train_test=sc.parallelize(train_test, numSlices=16).map(
+# lambda x: x.replace('<br />',' ')
+# )
+# rdd_list=[rdd_train, rdd_test, rdd_train_train, rdd_train_test]
+# other=[create_other_features(rdd) for rdd in rdd_list]
+# #clean data
+# for i, rdd in enumerate(rdd_list):
+#     rdd_list[i]=rdd.map(
+#     lambda x: x.lower()
+#     ).map(
+#     lambda x: x.replace(
+#     "'ll", " will"
+#     ).replace(
+#     "n't", " not"
+#     ).replace(
+#     "i'm", "i am"
+#     ).replace(
+#     "you're", "you are"
+#     )).map(
+#     lambda x:' '.join(
+#     [stemmer.stem(word) for word in x.split() if word not in swords]
+#     )
+#     ).map(
+#     lambda x:''.join(
+#     [w if w not in exclude else " " for w in x.lower() ]
+#     )
+#     )
+#
+#
+# num_documents=len(train)
+# fit_tw=[
+# tw_idf(
+# num_documents=num_documents, sliding_window=sliding_window).fit(
+# rdd_list[0]),
+# tw_idf(
+# num_documents=num_documents, sliding_window=sliding_window
+# ).fit(rdd_list[2])]
+# transform_tw = [fit_tw[0].transform(rdd_list[0]),
+# fit_tw[0].transform(rdd_list[1]), fit_tw[1].transform(rdd_list[2]),
+# fit_tw[1].transform(rdd_list[3])]
+# features = [hstack([transform_tw[i], other[i][0]]) for i in range(len(rdd_list))]
+# names = [fit_tw[0].idf_col.keys() + other[0][1],
+# fit_tw[0].idf_col.keys() + other[1][1],
+# fit_tw[1].idf_col.keys() + other[2][1],
+# fit_tw[1].idf_col.keys() + other[3][1]]
+#
+#
+# hashingTF = HashingTF()
+# tf_rdd = [hashingTF.transform(rdd) for rdd in rdd_list]
+# tfidf=[]
+# idf=[]
+# for i, tf in enumerate(tf_rdd):
+#     tf.cache()
+#     idf.append(IDF().fit(tf))
+#     tfidf.append(idf[i].transform(tf).collect())
+# features = [csr_matrix(np.array(tfidf[i] + other[i][0])) for i in range(len(rdd_list))]
+# names = [fit_tw[i].idf_col.keys() + other[i][1] for i in range(len(rdd_list))]
+#
