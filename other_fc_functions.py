@@ -2,7 +2,7 @@ import os
 import numpy as np
 import codecs
 from nltk.stem.snowball import SnowballStemmer
-from imdbpie import Imdb
+#from imdbpie import Imdb
 import string
 from nltk.corpus import stopwords
 from scipy.sparse import csr_matrix
