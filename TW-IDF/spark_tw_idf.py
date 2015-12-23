@@ -88,4 +88,4 @@ col=np.array(col)
 val=np.array(val)
 
 tw_idf_matrix=coo_matrix((val,(row,col)), shape=(len(features_tw),len(unique_words_dic)))
-save_sparse_csr("tw_idf_train",tw_idf_matrix)
+np.savez("tw_idf_train", x=tw_idf_matrix)

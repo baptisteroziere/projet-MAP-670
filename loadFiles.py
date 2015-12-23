@@ -25,17 +25,18 @@ def loadLabeled(path):
     tmpc0=np.zeros(len(data)-len(tmpc1))
     Class=np.concatenate((tmpc1,tmpc0),axis=0)
     return data,Class
+
 #loads unlabelled data
 #returns two lists
 #one with the data per file and another with the respective filenames (without the file extension)
-def loadUknown(path):
-    rootdir=path
-    data=[]
-    names=[]
-    for subdir, dirs, files in os.walk(rootdir):
-        for file in files:
-            with open(rootdir+"/"+file, 'r', endoding= "utf-8") as content_file:
-                content = content_file.read() #assume that there are NO "new line characters"
-                data.append(content)
-                names.append(file.split(".")[0])
-    return data,names
+def loadUnknown(path):
+	rootdir=path
+	data=[]
+	names=[]
+	for subdir, dirs, files in os.walk(rootdir):
+		for file in files:
+			with codecs.open(rootdir+"/"+file, 'r', encoding= "utf-8") as content_file:
+				content = content_file.read() #assume that there are NO "new line characters"
+				data.append(content)
+				names.append(file.split(".")[0])
+	return data,names
