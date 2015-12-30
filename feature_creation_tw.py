@@ -106,7 +106,7 @@ sliding_window=2):
         other_all, other_names =create_other_features(no_html_all_rdd)
         rdd_all=rdd_all.map(
         lambda x: x.lower()
-        ).map(
+        ).map(lambda
         x: x.replace(
         "'ll", " will"
         ).replace(
