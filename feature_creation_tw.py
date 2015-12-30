@@ -143,14 +143,23 @@ for sliding_window in range(1,6):
     separate_tw=create_features_tw(train, train_labels, test, test_size=0.25,
     compute_together=False, compute_other=True,
     sliding_window=sliding_window)
-    for i, split in enumerate(separate_tw):
-        np.savez("tw_sw{}_{}".format(sliding_window,file_names_separate[i]), data = split[0].data,
-        indices = split[0].indices, indptr = split[0].indptr,
-        shape = split[0].shape)
+    for i, split in enumerate(separate_tw[0]):
+        np.savez(
+        "tw_sw{}_{}".format(sliding_window,file_names_separate[i]),
+        data = split.data,
+        row=split.row,
+        col=split.col,
+        shape = split.shape
+        )
+
 for sliding_window in range(1,6):
     joined_tw = create_features_tw(train, train_labels, test, test_size=0.25,
     compute_together=True, compute_other=True,
     sliding_window=sliding_window)
-    np.savez("tw_sw{}_all".format(sliding_window), data = joined_tw[0].data,
-    indices = joined_tw[0].indices, indptr = joined_tw[0].indptr,
-    shape = joined_tw[0].shape)
+    np.savez(
+    "tw_sw{}_all".format(sliding_window),
+    data = joined_tw[0].data,
+    row = joined_tw[0].row,
+    col = joined_tw[0].col,
+    shape = joined_tw[0].shape
+    )
