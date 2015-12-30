@@ -151,6 +151,6 @@ for sliding_window in range(1,6):
     joined_tw = create_features_tw(train, train_labels, test, test_size=0.25,
     compute_together=True, compute_other=True,
     sliding_window=sliding_window)
-    np.savez("tw_sw{}_all".format(sliding_window), data = split[0].data,
-    indices = split[0].indices, indptr = split[0].indptr,
-    shape = split[0].shape)
+    np.savez("tw_sw{}_all".format(sliding_window), data = joined_tw[0].data,
+    indices = joined_tw[0].indices, indptr = joined_tw[0].indptr,
+    shape = joined_tw[0].shape)
