@@ -152,5 +152,5 @@ for sliding_window in range(1,6):
     compute_together=True, compute_other=True,
     sliding_window=sliding_window)
     np.savez("tw_sw{}_all".format(sliding_window), data = split[0].data,
-    indices[0] = split[0].indices, indptr = split[0].indptr,
+    indices = split[0].indices, indptr = split[0].indptr,
     shape = split[0].shape)
