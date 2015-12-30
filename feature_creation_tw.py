@@ -145,7 +145,7 @@ for sliding_window in range(1,6):
     sliding_window=sliding_window)
     for i, split in enumerate(separate_tw):
         np.savez("tw_sw{}_{}".format(sliding_window,file_names_separate[i]), data = split[0].data,
-        indices[0] = split[0].indices, indptr = split[0].indptr,
+        indices = split[0].indices, indptr = split[0].indptr,
         shape = split[0].shape)
 for sliding_window in range(1,6):
     joined_tw = create_features_tw(train, train_labels, test, test_size=0.25,
