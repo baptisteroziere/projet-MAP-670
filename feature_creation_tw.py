@@ -129,7 +129,7 @@ sliding_window=2):
         sliding_window=sliding_window).fit(rdd_all)
         tw=tw_fit.transform(rdd_all)
         features = hstack([tw, other_all])
-        names = fit_tw.idf_col.keys() + other_names
+        names = tw_fit.idf_col.keys() + other_names
         return features, names
 
 all_tw=[]
