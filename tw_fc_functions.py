@@ -48,16 +48,4 @@ class tw_idf():
         return self
     def transform(self, cleaned_rdd):
         words_per_doc=cleaned_rdd.map(lambda x: x.split())
-        tw_scores = words_per_doc.map(partial(tw, sliding_window=self.sliding_window, idf_col=self.idf_col)).collect()
-        row=[]
-        col=[]
-        val=[]
-        for i in range(len(tw_scores)):
-            row += len(tw_scores[i])*[i]
-            for j in range(len(tw_scores[i])):
-                col += [self.unique_words[tw_scores[i][j][0]]]
-                val += [tw_scores[i][j][1]]
-        row=np.array(row)
-        col=np.array(col)
-        val=np.array(val)
-        return coo_matrix((val,(row,col)), shape=(len(tw_scores),len(self.unique_words)))
+        return words_per_doc.map(partial(tw, sliding_window=self.sliding_window, idf_col=self.idf_col))
