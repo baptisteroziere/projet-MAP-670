@@ -171,7 +171,7 @@ sliding_window=2, scale=True):
         to_sparse_func=functools.partial(
         rdd_to_sparse, unique_words=tw_fit.unique_words)
         sparse_tw=to_sparse_func(collect_tw)
-        features = hstack([sparse_tw, other[i][0]]) for i in range(len(rdd_list))
+        features = hstack([sparse_tw, other_all[0]])
         names = tw_fit.idf_col.keys() + other_names
         return features, names
 
