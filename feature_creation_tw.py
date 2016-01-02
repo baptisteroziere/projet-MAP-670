@@ -7,6 +7,7 @@ from nltk import PorterStemmer
 from pyspark.mllib.feature import HashingTF
 from pyspark.mllib.feature import IDF
 from scipy.sparse import hstack, coo_matrix, csr_matrix
+from pyspark.mllib.feature import StandardScaler
 
 path_baptiste_train = "/home/baptiste/Documents/data/train"
 path_igor_train = "C:/Users/Igor/Documents/Master Data Science/Big Data Analytics/Projet/data/train"
@@ -33,7 +34,7 @@ sc = SparkContext(appName="TW-IDF App")
 
 def create_features_tw(train, train_labels, test, test_size=0.25,
 compute_together=True, compute_other=True,
-sliding_window=2):
+sliding_window=2, scale=True):
     """
     Give a function that splits the data for cross-validation that only takes
     train and train_labels as arguments (use partial).
@@ -98,7 +99,19 @@ sliding_window=2):
         fit_tw[0].idf_col.keys() + other[1][1],
         fit_tw[1].idf_col.keys() + other[2][1],
         fit_tw[1].idf_col.keys() + other[3][1]]
-        return features, names
+        if scale == True:
+            scaler=[StandardScaler(True,True), StandardScaler(True, True)]
+            features=map(lambda x: x.tocsc(), features)
+            Vectors =[[features[i][:,k] for k in range(features[i].shape[1])]for i in range(len(features))]
+            to_scale = [sc.parallelize(Vectors[i], numSlices=16) for i in range(len(features))]
+            features_scaled=map(
+            lambda y: y.map(
+            lambda x: (x.todense()-x.mean())/(np.sqrt(
+            (x.todense() - x.mean()**2).mean()))
+            ).collect(), to_scale)
+            return features_scaled, names
+        else :
+            return features, names
     else :
         all_data= train + test
         rdd_all=sc.parallelize(all_data, numSlices=16)
@@ -130,36 +143,69 @@ sliding_window=2):
         tw=tw_fit.transform(rdd_all)
         features = hstack([tw, other_all])
         names = tw_fit.idf_col.keys() + other_names
-        return features, names
+        if scale == True:
+            scaler=StandardScaler(True,True)
+            features = features.tocsc()
+            Vectors = [features[:,k] for k in range(features.shape[1])]
+            to_scale = sc.parallelize(Vectors, numSlices=16)
+            features_scaled=to_scale.map(
+            lambda x: (x.todense()-x.mean())/(np.sqrt(
+            (x.todense() - x.mean()**2).mean()))
+            ).collect()
+            return features_scaled, names
+        else :
+            return features, names
 
-all_tw=[]
-for sliding_window in range(1,6):
-    all_tw.append(create_features_tw(train, train_labels, test, test_size=0.25,
-    compute_together=True, compute_other=True,
-    sliding_window=sliding_window))
 
 file_names_separate=["train", "test", "train_train", "train_test"]
-for sliding_window in range(1,6):
-    separate_tw=create_features_tw(train, train_labels, test, test_size=0.25,
-    compute_together=False, compute_other=True,
-    sliding_window=sliding_window)
-    for i, split in enumerate(separate_tw[0]):
+scaled_txt = ["sc", "non_sc"]
+for k, scaled in enumerate([True, False]):
+    for sliding_window in range(1,6):
+        separate_tw=create_features_tw(train, train_labels, test, test_size=0.25,
+        compute_together=False, compute_other=True,
+        sliding_window=sliding_window, scale=scaled)
+        for i, split in enumerate(separate_tw[0]):
+            np.savez(
+            "tw_sw{}_{}_{}".format(
+            sliding_window,file_names_separate[i], scaled_txt[k]),
+            data = split.data,
+            row=split.row,
+            col=split.col,
+            shape = split.shape
+            )
+    for sliding_window in range(1,6):
+        joined_tw = create_features_tw(train, train_labels, test, test_size=0.25,
+        compute_together=True, compute_other=True,
+        sliding_window=sliding_window, scale=True)
+        data_train = joined_tw[0].tocsr()[:25000]
+        data_test= joined_tw[0].tocsr()[25000:]
+        data_train_train, data_train_test=train_test_split(
+        data_train, test_size = 0.25, random_state = 42)
         np.savez(
-        "tw_sw{}_{}".format(sliding_window,file_names_separate[i]),
-        data = split.data,
-        row=split.row,
-        col=split.col,
-        shape = split.shape
+        "tw_sw{}_all_train_{}".format(sliding_window, scaled_txt[k]),
+        data = data_train.data,
+        indices = data_train.indices,
+        indptr = data_train.indptr,
+        shape = data_train.shape
         )
-
-for sliding_window in range(1,6):
-    joined_tw = create_features_tw(train, train_labels, test, test_size=0.25,
-    compute_together=True, compute_other=True,
-    sliding_window=sliding_window)
-    np.savez(
-    "tw_sw{}_all".format(sliding_window),
-    data = joined_tw[0].data,
-    row = joined_tw[0].row,
-    col = joined_tw[0].col,
-    shape = joined_tw[0].shape
-    )
+        np.savez(
+        "tw_sw{}_all_test_{}".format(sliding_window, scaled_txt[k]),
+        data = data_test.data,
+        indices = data_test.indices,
+        indptr = data_test.indptr,
+        shape = data_test.shape
+        )
+        np.savez(
+        "tw_sw{}_all_train_train_{}".format(sliding_window, scaled_txt[k]),
+        data = data_train_train.data,
+        indices = data_train_train.indices,
+        indptr = data_train_train.indptr,
+        shape = data_train_train.shape
+        )
+        np.savez(
+        "tw_sw{}_all_train_test_{}".format(sliding_window, scaled_txt[k]),
+        data = data_train_test.data,
+        indices = data_train_test.indices,
+        indptr = data_train_test.indptr,
+        shape = data_train_test.shape
+        )
